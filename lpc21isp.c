@@ -1643,10 +1643,10 @@ void ResetTarget(ISP_ENVIRONMENT *IspEnvironment, TARGET_MODE mode)
   int gpio_rst;
 
   memset(gpio_isp_filename, 0, sizeof(gpio_isp_filename));
-  sprintf(gpio_isp_filename, "/sys/class/gpio/gpio%d/value", GPIO_ISP);
+  sprintf(gpio_isp_filename, "/sys/class/gpio/gpio%s/value", GPIO_ISP);
 
   memset(gpio_rst_filename, 0, sizeof(gpio_rst_filename));
-  sprintf(gpio_rst_filename, "/sys/class/gpio/gpio%d/value", GPIO_RST);
+  sprintf(gpio_rst_filename, "/sys/class/gpio/gpio%s/value", GPIO_RST);
 
   gpio_isp = open(gpio_isp_filename, O_WRONLY);
   if (gpio_isp < 0)
