@@ -44,3 +44,30 @@ To compile with gcc (linux, cygwin, ...)
   make -f Makefile.gnu clean all
 - Run (if you want to use gmake and gcc)
   gmake -f Makefile.gnu clean all
+
+
+Extract from lpc21isp.c line 1616
+
+// Build lpc21isp to use Linux GPIO like this:
+//
+// make CFLAGS="-Wall -DGPIO_ISP=23 -DGPIO_RST=18"
+//
+// The GPIO pins must be pre-configured in /etc/rc.local (or other startup script)
+// similar to the following:
+//
+// # Configure -ISP signal
+// echo 23 >/sys/class/gpio/export
+// echo out >/sys/class/gpio/gpio23/direction
+// echo 1 >/sys/class/gpio/gpio23/value
+// chown root.gpio /sys/class/gpio/gpio23/value
+// chmod 660 /sys/class/gpio/gpio23/value
+//
+// # Configure -RST signal
+// echo 18 >/sys/class/gpio/export
+// echo out >/sys/class/gpio/gpio18/direction
+// echo 1 >/sys/class/gpio/gpio18/value
+// chown root.gpio /sys/class/gpio/gpio18/value
+// chmod 660 /sys/class/gpio/gpio18/value
+//
+// Then if the user is a member of the gpio group, lpc21isp will not requre any
+// special permissions to access the GPIO signals.
