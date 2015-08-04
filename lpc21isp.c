@@ -1392,7 +1392,7 @@ static void ReadArguments(ISP_ENVIRONMENT *IspEnvironment, unsigned int argc, ch
                 continue;
             }
 
-            if(strnicmp(argv[i],"-debug", 6) == 0)
+            if (strnicmp(argv[i],"-debug", 6) == 0)
             {
                 char* num;
                 num = argv[i] + 6;
@@ -1417,7 +1417,7 @@ static void ReadArguments(ISP_ENVIRONMENT *IspEnvironment, unsigned int argc, ch
                 continue;
             }
 
-            if(strnicmp(argv[i],"-try", 4) == 0)
+            if (strnicmp(argv[i],"-try", 4) == 0)
             {
                 int
                     retry;
@@ -1434,11 +1434,24 @@ static void ReadArguments(ISP_ENVIRONMENT *IspEnvironment, unsigned int argc, ch
                 continue;
             }
 
-
             if (stricmp(argv[i], "-control") == 0)
             {
                 IspEnvironment->ControlLines = 1;
                 DebugPrintf(3, "Use RTS/DTR to control target state.\n");
+                continue;
+            }
+
+            if (strnicmp(argv[i],"-reset=", 7) == 0)
+            {
+                strcpy(IspEnvironment->RstFilename, &argv[i][7]);
+                DebugPrintf(3, "Use custom defined reset GPIO.\n");
+                continue;
+            }
+
+            if (strnicmp(argv[i],"-isp=", 5) == 0)
+            {
+                strcpy(IspEnvironment->IspFilename, &argv[i][5]);
+                DebugPrintf(3, "Use custom defined ISP enable GPIO.\n");
                 continue;
             }
 
@@ -1570,6 +1583,8 @@ static void ReadArguments(ISP_ENVIRONMENT *IspEnvironment, unsigned int argc, ch
                        "         -wipe        Erase entire device before upload\n"
                        "         -control     for controlling RS232 lines for easier booting\n"
                        "                      (Reset = DTR, EnableBootLoader = RTS)\n"
+                       "         -rst=<path>  for define Reset GPIO path\n"
+                       "         -isp=<path>  for define EnableBootLoader GPIO path\n"
                        "         -boothold    hold EnableBootLoader asserted throughout sequence\n"
 #ifdef INTEGRATED_IN_WIN_APP
                        "         -nosync      Do not synchronize device via '?'\n"
@@ -1608,7 +1623,7 @@ run mode.
 */
 void ResetTarget(ISP_ENVIRONMENT *IspEnvironment, TARGET_MODE mode)
 {
-#if defined(__linux__) && defined(GPIO_RST) && defined(GPIO_ISP)
+#if defined(__linux__)
 
 // This code section allows using Linux GPIO pins to control the -RST and -ISP
 // signals of the target microcontroller.
@@ -1642,51 +1657,73 @@ void ResetTarget(ISP_ENVIRONMENT *IspEnvironment, TARGET_MODE mode)
   int gpio_isp;
   int gpio_rst;
 
-  memset(gpio_isp_filename, 0, sizeof(gpio_isp_filename));
-  sprintf(gpio_isp_filename, "/sys/class/gpio/gpio%s/value", GPIO_ISP);
+    if (IspEnvironment->IspFilename[0] && IspEnvironment->RstFilename[0])
+    {
+        sprintf(gpio_isp_filename, "%s/direction", IspEnvironment->IspFilename);
+        sprintf(gpio_rst_filename, "%s/direction", IspEnvironment->RstFilename);
 
-  memset(gpio_rst_filename, 0, sizeof(gpio_rst_filename));
-  sprintf(gpio_rst_filename, "/sys/class/gpio/gpio%s/value", GPIO_RST);
+        gpio_isp = open(gpio_isp_filename, O_WRONLY);
+        if (gpio_isp < 0)
+        {
+          fprintf(stderr, "ERROR: open() for %s failed, %s\n", gpio_isp_filename, strerror(errno));
+          exit(1);
+        }
 
-  gpio_isp = open(gpio_isp_filename, O_WRONLY);
-  if (gpio_isp < 0)
-  {
-    fprintf(stderr, "ERROR: open() for %s failed, %s\n", gpio_isp_filename, strerror(errno));
-    exit(1);
-  }
+        gpio_rst = open(gpio_rst_filename, O_WRONLY);
+        if (gpio_rst < 0)
+        {
+          fprintf(stderr, "ERROR: open() for %s failed, %s\n", gpio_rst_filename, strerror(errno));
+          exit(1);
+        }
 
-  gpio_rst = open(gpio_rst_filename, O_WRONLY);
-  if (gpio_rst < 0)
-  {
-    fprintf(stderr, "ERROR: open() for %s failed, %s\n", gpio_rst_filename, strerror(errno));
-    exit(1);
-  }
+        write(gpio_isp, "out\n", 4);
+        write(gpio_rst, "out\n", 4);
+        close(gpio_isp);
+        close(gpio_rst);
 
-  switch (mode)
-  {
-    case PROGRAM_MODE :
-      write(gpio_isp, "0\n", 2);  // Assert -ISP
-      Sleep(100);
-      write(gpio_rst, "0\n", 2);  // Assert -RST
-      Sleep(500);
-      write(gpio_rst, "1\n", 2);  // Deassert -RST
-      Sleep(100);
-      write(gpio_isp, "1\n", 2);  // Deassert -ISP
-      Sleep(100);
-      break;;
+        sprintf(gpio_isp_filename, "%s/value", IspEnvironment->IspFilename);
+        sprintf(gpio_rst_filename, "%s/value", IspEnvironment->RstFilename);
 
-    case RUN_MODE :
-      write(gpio_rst, "0\n", 2);  // Assert -RST
-      Sleep(500);
-      write(gpio_rst, "1\n", 2);  // Deassert -ISP
-      Sleep(100);
-      break;;
-  }
+        gpio_isp = open(gpio_isp_filename, O_WRONLY);
+        if (gpio_isp < 0)
+        {
+          fprintf(stderr, "ERROR: open() for %s failed, %s\n", gpio_isp_filename, strerror(errno));
+          exit(1);
+        }
 
-  close(gpio_isp);
-  close(gpio_rst);
+        gpio_rst = open(gpio_rst_filename, O_WRONLY);
+        if (gpio_rst < 0)
+        {
+          fprintf(stderr, "ERROR: open() for %s failed, %s\n", gpio_rst_filename, strerror(errno));
+          exit(1);
+        }
 
-  return;
+        switch (mode)
+        {
+          case PROGRAM_MODE :
+            write(gpio_isp, "0\n", 2);  // Assert -ISP
+            Sleep(100);
+            write(gpio_rst, "0\n", 2);  // Assert -RST
+            Sleep(500);
+            write(gpio_rst, "1\n", 2);  // Deassert -RST
+            Sleep(100);
+            write(gpio_isp, "1\n", 2);  // Deassert -ISP
+            Sleep(100);
+            break;;
+
+          case RUN_MODE :
+            write(gpio_rst, "0\n", 2);  // Assert -RST
+            Sleep(500);
+            write(gpio_rst, "1\n", 2);  // Deassert -ISP
+            Sleep(100);
+            break;;
+        }
+
+        close(gpio_isp);
+        close(gpio_rst);
+
+        return;
+    }
 #endif
 
     if (IspEnvironment->ControlLines)

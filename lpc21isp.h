@@ -168,6 +168,8 @@ typedef struct
     unsigned char ControlLines;
     unsigned char ControlLinesSwapped;
     unsigned char ControlLinesInverted;
+    char IspFilename[256];
+    char RstFilename[256];
     unsigned char LogFile;
     FILE_LIST *f_list;                  // List of files to read in.
     int nQuestionMarks; // how many times to try to synchronise
