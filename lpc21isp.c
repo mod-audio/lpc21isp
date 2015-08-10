@@ -1441,9 +1441,9 @@ static void ReadArguments(ISP_ENVIRONMENT *IspEnvironment, unsigned int argc, ch
                 continue;
             }
 
-            if (strnicmp(argv[i],"-reset=", 7) == 0)
+            if (strnicmp(argv[i],"-rst=", 5) == 0)
             {
-                strcpy(IspEnvironment->RstFilename, &argv[i][7]);
+                strcpy(IspEnvironment->RstFilename, &argv[i][5]);
                 DebugPrintf(3, "Use custom defined reset GPIO.\n");
                 continue;
             }
@@ -1652,34 +1652,39 @@ void ResetTarget(ISP_ENVIRONMENT *IspEnvironment, TARGET_MODE mode)
 // Then if the user is a member of the gpio group, lpc21isp will not requre any
 // special permissions to access the GPIO signals.
 
-  char gpio_isp_filename[256];
-  char gpio_rst_filename[256];
-  int gpio_isp;
-  int gpio_rst;
+    char gpio_isp_filename[256];
+    char gpio_rst_filename[256];
+    int gpio_isp;
+    int gpio_rst;
 
     if (IspEnvironment->IspFilename[0] && IspEnvironment->RstFilename[0])
     {
-        sprintf(gpio_isp_filename, "%s/direction", IspEnvironment->IspFilename);
-        sprintf(gpio_rst_filename, "%s/direction", IspEnvironment->RstFilename);
-
-        gpio_isp = open(gpio_isp_filename, O_WRONLY);
-        if (gpio_isp < 0)
+        if (!IspEnvironment->IsGpioConfigured)
         {
-          fprintf(stderr, "ERROR: open() for %s failed, %s\n", gpio_isp_filename, strerror(errno));
-          exit(1);
-        }
+            sprintf(gpio_isp_filename, "%s/direction", IspEnvironment->IspFilename);
+            sprintf(gpio_rst_filename, "%s/direction", IspEnvironment->RstFilename);
 
-        gpio_rst = open(gpio_rst_filename, O_WRONLY);
-        if (gpio_rst < 0)
-        {
-          fprintf(stderr, "ERROR: open() for %s failed, %s\n", gpio_rst_filename, strerror(errno));
-          exit(1);
-        }
+            gpio_isp = open(gpio_isp_filename, O_WRONLY);
+            if (gpio_isp < 0)
+            {
+              fprintf(stderr, "ERROR: open() for %s failed, %s\n", gpio_isp_filename, strerror(errno));
+              exit(1);
+            }
 
-        write(gpio_isp, "out\n", 4);
-        write(gpio_rst, "out\n", 4);
-        close(gpio_isp);
-        close(gpio_rst);
+            gpio_rst = open(gpio_rst_filename, O_WRONLY);
+            if (gpio_rst < 0)
+            {
+              fprintf(stderr, "ERROR: open() for %s failed, %s\n", gpio_rst_filename, strerror(errno));
+              exit(1);
+            }
+
+            write(gpio_isp, "out\n", 4);
+            write(gpio_rst, "out\n", 4);
+            close(gpio_isp);
+            close(gpio_rst);
+
+            IspEnvironment->IsGpioConfigured = 1;
+        }
 
         sprintf(gpio_isp_filename, "%s/value", IspEnvironment->IspFilename);
         sprintf(gpio_rst_filename, "%s/value", IspEnvironment->RstFilename);
